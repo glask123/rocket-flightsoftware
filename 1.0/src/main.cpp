@@ -13,14 +13,16 @@
 #define red_led 15
 #define sd_chip_select 0
 
+String filename = "test.txt";
+
 //FUNCTIONS
 
 void blink_connect(int num, int led) {
   for (int i = 0; i < num; i++){
     digitalWrite(led, LOW);
-    delay(300);
+    delay(200);
     digitalWrite(led, HIGH);
-    delay(300);
+    delay(200);
   }
   delay(1000);
 }
@@ -45,12 +47,6 @@ void setup() {
       Fastwire::setup(400, true);
   #endif
 
-  Serial.begin(9600);
-
-  while (!Serial){
-    
-  }
-
   //LED MAPPING
   pinMode(red_led, OUTPUT);
   pinMode(green_led, OUTPUT);
@@ -61,6 +57,37 @@ void setup() {
   digitalWrite(green_led, HIGH);
   digitalWrite(blue_led, HIGH);
 
+  digitalWrite(red_led, LOW);
+  delay(200);
+  digitalWrite(blue_led, LOW);
+  delay(200);
+  digitalWrite(green_led, LOW);
+  delay(200);
+  digitalWrite(red_led, HIGH);
+  digitalWrite(green_led, HIGH);
+  digitalWrite(blue_led, HIGH);
+  delay(1000);
+
+  //SERIAL
+  Serial.begin(9600);
+
+  while (!Serial){
+
+  }
+
+  for (int i = 0; i < 2; i++){
+    digitalWrite(red_led, LOW);
+    digitalWrite(green_led, LOW);
+    digitalWrite(blue_led, LOW);
+    delay(500);
+    digitalWrite(red_led, HIGH);
+    digitalWrite(green_led, HIGH);
+    digitalWrite(blue_led, HIGH);
+    delay(500);
+  }
+  delay(1000);
+  
+  
   //CREATE GYRO
   imu.initialize();
 
@@ -72,14 +99,16 @@ void setup() {
   imu.setYGyroOffset(-174);
   imu.setZGyroOffset(-41);
 
+  /*
   while (!imu.testConnection()){
-    Serial.println(imu.getDeviceID());
+    Serial.println(imu.getAccelerationX());
     Serial.println("MPU6050 CONNECTION FAILED");
     digitalWrite(red_led, LOW);
     delay(500);
     digitalWrite(red_led, HIGH);
     delay(500);
   }
+  */
 
   Serial.println("CONNECTED TO MPU6050");
   blink_connect(1, green_led);
@@ -96,7 +125,6 @@ void setup() {
   Serial.println("CONNECTED TO BMP");
   blink_connect(2, green_led);
 
-
   while (!SD.begin(sd_chip_select)) {
     Serial.println("SD CONNECTION FAILED");
     digitalWrite(red_led, LOW);
@@ -107,25 +135,23 @@ void setup() {
   Serial.println("CONNECTED TO SD");
   blink_connect(3, green_led);
 
-  if (SD.exists("r1_f1_datalog.txt")){
-    Serial.println("r1_f1_datalog.txt EXISTS");
+  if (SD.exists("text.txt")){
+    Serial.println("FILE EXISTS");
+    blink_connect(4, green_led);
   } else {
-    Serial.println("r1_f1_datalog.txt DOES NOT EXIST");
+    Serial.println("FILE DOES NOT EXIST");
   }
 
-  datalog = SD.open("r1_f1_datalog.txt", FILE_WRITE);
+  datalog = SD.open("text.txt", FILE_WRITE);
   datalog.close();
 
-  if (SD.exists("r1_f1_datalog.txt")){
-    Serial.println("FILE SUCCESSFULLY CREATED");
+  if (SD.exists("text.txt")){
+    Serial.println("LOG SUCCESSFULLY OPENED");
   } else {
-    digitalWrite(red_led, LOW);
-    digitalWrite(green_led, HIGH);
-    digitalWrite(blue_led, HIGH);
-    Serial.println("FILE CREATION FAILED");
+    Serial.println("LOG FAILED TO OPEN");
+    blink_connect(2, red_led);
     return;
   }
-
 
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
                   Adafruit_BMP280::SAMPLING_X2,
@@ -139,6 +165,12 @@ int loop_delay = 1000;
 int flight_time;
 double local_pressure;
 double starting_altitude;
+
+float acc_x, acc_y, acc_z;
+float gyro_x, gyro_y, gyro_z;
+float accAngleX, accAngleY, gyroAngleX, gyroAngleY, gyroAngleZ;
+float roll, pitch, yaw;
+float elapsedTime, currentTime, previousTime;
 
 void loop() {
   String dataString = "";
@@ -158,6 +190,27 @@ void loop() {
     digitalWrite(green_led, HIGH);
     digitalWrite(blue_led, HIGH);
 
+    acc_x = ax / 16384.0 * 9.805;
+    acc_y = ay / 16384.0 * 9.805;
+    acc_z = az / 16384.0 * 9.805;
+
+    previousTime = currentTime;
+    currentTime = millis();
+    elapsedTime = (currentTime - previousTime) / 1000;
+
+    gyro_x = gx / 131;
+    gyro_y = gy / 131;
+    gyro_z = gz / 131;
+
+    accAngleX = (atan(acc_y / sqrt(pow(acc_x, 2) + pow(acc_z, 2))) * 180 / PI);
+    accAngleY = (atan(-1 * acc_x / sqrt(pow(acc_y, 2) + pow(acc_z, 2))) * 180 / PI);
+
+    gyroAngleX = gyroAngleX + gyro_x * elapsedTime;
+    gyroAngleY = gyroAngleY + gyro_y * elapsedTime;
+    yaw =  yaw + gyro_z * elapsedTime;
+    roll = 0.96 * gyroAngleX + 0.04 * accAngleX;
+    pitch = 0.96 * gyroAngleY + 0.04 * accAngleY;
+
     dataString += flight_time + ", ";
     dataString += volt_in +  ", ";
     dataString += bmp.readPressure();
@@ -166,23 +219,32 @@ void loop() {
     dataString += ", ";
     dataString += bmp.readTemperature();
     dataString += ", ";
-    dataString += ax/16384.0 * 9.805;
+    dataString += acc_x;
     dataString += ", ";
-    dataString += ay/16384.0 * 9.805;
+    dataString += acc_y;
     dataString += ", ";
-    dataString += az/16384.0 * 9.805;
+    dataString += acc_z;
     dataString += ", ";
-    dataString += gx/131;
+    dataString += gyro_x;
     dataString += ", ";
-    dataString += gy/131;
+    dataString += gyro_z;
     dataString += ", ";
-    dataString += gz/131;
+    dataString += gyro_z;
     dataString += ", ";
 
+    Serial.print(yaw);
+    Serial.print(",");
+    Serial.print(roll);
+    Serial.print(",");
+    Serial.print(pitch);
+    Serial.print(",");
+    Serial.println();
 
+    /*
     if (datalog){
       datalog.println(dataString);
     }
+    */
   }
 
   delay(loop_delay);
