@@ -6,19 +6,34 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 
-const int voltage_pin = 17;
-const int blueLED = 14;
-const int greenLED = 16;
-const int redLED = 15;
+//PIN MAPPING
+#define voltage_pin 17
+#define blue_led 14
+#define green_led 16
+#define red_led 15
+#define sd_chip_select 0
 
-int sd_cs = 0;
+//FUNCTIONS
 
+void blink_connect(int num, int led) {
+  for (int i = 0; i < num; i++){
+    digitalWrite(led, LOW);
+    delay(300);
+    digitalWrite(led, HIGH);
+    delay(300);
+  }
+  delay(1000);
+}
+
+//STATE MANAGEMENT
 String status = "prelaunch";
 
+//INITIALIZE BREAKOUTS
 File datalog;
 Adafruit_BMP280 bmp;
-MPU6050 accelgyro;
+MPU6050 imu(0x68);
 
+//INITIALIZE GYRO VALUES
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
@@ -36,50 +51,61 @@ void setup() {
     
   }
 
-  pinMode(redLED, OUTPUT);
-  pinMode(blueLED, OUTPUT);
-  pinMode(greenLED, OUTPUT);
+  //LED MAPPING
+  pinMode(red_led, OUTPUT);
+  pinMode(green_led, OUTPUT);
+  pinMode(blue_led, OUTPUT);
 
-  digitalWrite(redLED, HIGH);
-    digitalWrite(blueLED, HIGH);
-    digitalWrite(greenLED, HIGH);
+  //LED INITIALIZING
+  digitalWrite(red_led, HIGH);
+  digitalWrite(green_led, HIGH);
+  digitalWrite(blue_led, HIGH);
 
-  accelgyro.initialize();
+  //CREATE GYRO
+  imu.initialize();
 
-  if (!accelgyro.testConnection()){
-    digitalWrite(redLED, HIGH);
-    digitalWrite(blueLED, LOW);
-    digitalWrite(greenLED, HIGH); 
+  imu.setXAccelOffset(-20425);
+  imu.setYAccelOffset(-32689);
+  imu.setZAccelOffset(21616);
+
+  imu.setXGyroOffset(12);
+  imu.setYGyroOffset(-174);
+  imu.setZGyroOffset(-41);
+
+  while (!imu.testConnection()){
+    Serial.println(imu.getDeviceID());
     Serial.println("MPU6050 CONNECTION FAILED");
+    digitalWrite(red_led, LOW);
+    delay(500);
+    digitalWrite(red_led, HIGH);
+    delay(500);
   }
 
-   Serial.println("CONNECTED TO MPU6050");
+  Serial.println("CONNECTED TO MPU6050");
+  blink_connect(1, green_led);
 
-  if (!bmp.begin()) {
-    digitalWrite(redLED, HIGH);
-    digitalWrite(blueLED, LOW);
-    digitalWrite(greenLED, HIGH);
+
+  while (!bmp.begin()) {
     Serial.println("BMP CONNECTION FAILED");
+    digitalWrite(red_led, LOW);
+    delay(500);
+    digitalWrite(red_led, HIGH);
+    delay(500);
   }
 
   Serial.println("CONNECTED TO BMP");
+  blink_connect(2, green_led);
 
-  accelgyro.setXAccelOffset(-20425);
-  accelgyro.setYAccelOffset(-32689);
-  accelgyro.setZAccelOffset(21616);
 
-  accelgyro.setXGyroOffset(12);
-  accelgyro.setYGyroOffset(-174);
-  accelgyro.setZGyroOffset(-41);
-
-  if (!SD.begin(sd_cs)) {
-    digitalWrite(redLED, HIGH);
-    digitalWrite(blueLED, LOW);
-    digitalWrite(greenLED, HIGH);
+  while (!SD.begin(sd_chip_select)) {
     Serial.println("SD CONNECTION FAILED");
+    digitalWrite(red_led, LOW);
+    delay(500);
+    digitalWrite(red_led, HIGH);
   }
 
   Serial.println("CONNECTED TO SD");
+  blink_connect(3, green_led);
 
   if (SD.exists("r1_f1_datalog.txt")){
     Serial.println("r1_f1_datalog.txt EXISTS");
@@ -93,9 +119,9 @@ void setup() {
   if (SD.exists("r1_f1_datalog.txt")){
     Serial.println("FILE SUCCESSFULLY CREATED");
   } else {
-    digitalWrite(redLED, LOW);
-    digitalWrite(blueLED, HIGH);
-    digitalWrite(greenLED, HIGH);
+    digitalWrite(red_led, LOW);
+    digitalWrite(green_led, HIGH);
+    digitalWrite(blue_led, HIGH);
     Serial.println("FILE CREATION FAILED");
     return;
   }
@@ -118,19 +144,19 @@ void loop() {
   String dataString = "";
 
   int volt_in = analogRead(voltage_pin);
-  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
   // DATALOG: TIMESTEP, VOLTAGE, PRESSURE, ALT, TEMP, AX, AY, AZ, GX, GY, GZ
   if (status == "prelaunch"){
-    digitalWrite(blueLED, HIGH);
-    digitalWrite(redLED, HIGH);
-    digitalWrite(greenLED, LOW);
+    digitalWrite(red_led, HIGH);
+    digitalWrite(green_led, HIGH);
+    digitalWrite(blue_led, LOW);
   }
   if (status == "launch"){
     flight_time += loop_delay;
-    digitalWrite(blueLED, HIGH);
-    digitalWrite(redLED, HIGH);
-    digitalWrite(greenLED, HIGH);
+    digitalWrite(red_led, HIGH);
+    digitalWrite(green_led, HIGH);
+    digitalWrite(blue_led, HIGH);
 
     dataString += flight_time + ", ";
     dataString += volt_in +  ", ";
@@ -161,3 +187,5 @@ void loop() {
 
   delay(loop_delay);
 }
+
+
