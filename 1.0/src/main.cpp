@@ -69,7 +69,7 @@ void setup() {
   delay(1000);
 
   //SERIAL
-  Serial.begin(9600);
+  Serial.begin(19200);
 
   while (!Serial){
 
@@ -110,45 +110,45 @@ void setup() {
   }
   */
 
-  Serial.println("CONNECTED TO MPU6050");
+  //Serial.println("CONNECTED TO MPU6050");
   blink_connect(1, green_led);
 
 
   while (!bmp.begin()) {
-    Serial.println("BMP CONNECTION FAILED");
+    //Serial.println("BMP CONNECTION FAILED");
     digitalWrite(red_led, LOW);
     delay(500);
     digitalWrite(red_led, HIGH);
     delay(500);
   }
 
-  Serial.println("CONNECTED TO BMP");
+  //Serial.println("CONNECTED TO BMP");
   blink_connect(2, green_led);
 
   while (!SD.begin(sd_chip_select)) {
-    Serial.println("SD CONNECTION FAILED");
+    //Serial.println("SD CONNECTION FAILED");
     digitalWrite(red_led, LOW);
     delay(500);
     digitalWrite(red_led, HIGH);
   }
 
-  Serial.println("CONNECTED TO SD");
+  //Serial.println("CONNECTED TO SD");
   blink_connect(3, green_led);
 
   if (SD.exists("text.txt")){
-    Serial.println("FILE EXISTS");
+    //Serial.println("FILE EXISTS");
     blink_connect(4, green_led);
   } else {
-    Serial.println("FILE DOES NOT EXIST");
+    //Serial.println("FILE DOES NOT EXIST");
   }
 
   datalog = SD.open("text.txt", FILE_WRITE);
   datalog.close();
 
   if (SD.exists("text.txt")){
-    Serial.println("LOG SUCCESSFULLY OPENED");
+    //Serial.println("LOG SUCCESSFULLY OPENED");
   } else {
-    Serial.println("LOG FAILED TO OPEN");
+    //Serial.println("LOG FAILED TO OPEN");
     blink_connect(2, red_led);
     return;
   }
@@ -161,7 +161,7 @@ void setup() {
   
 }
 
-int loop_delay = 1000;
+int loop_delay = 100;
 int flight_time;
 double local_pressure;
 double starting_altitude;
@@ -183,12 +183,14 @@ void loop() {
     digitalWrite(red_led, HIGH);
     digitalWrite(green_led, HIGH);
     digitalWrite(blue_led, LOW);
+    delay(2000);
+    status = "launch";
   }
   if (status == "launch"){
     flight_time += loop_delay;
-    digitalWrite(red_led, HIGH);
+    digitalWrite(red_led, LOW);
     digitalWrite(green_led, HIGH);
-    digitalWrite(blue_led, HIGH);
+    digitalWrite(blue_led, LOW);
 
     acc_x = ax / 16384.0 * 9.805;
     acc_y = ay / 16384.0 * 9.805;
@@ -211,6 +213,8 @@ void loop() {
     roll = 0.96 * gyroAngleX + 0.04 * accAngleX;
     pitch = 0.96 * gyroAngleY + 0.04 * accAngleY;
 
+    /*
+
     dataString += flight_time + ", ";
     dataString += volt_in +  ", ";
     dataString += bmp.readPressure();
@@ -232,13 +236,13 @@ void loop() {
     dataString += gyro_z;
     dataString += ", ";
 
-    Serial.print(yaw);
-    Serial.print(",");
+    */
+
     Serial.print(roll);
-    Serial.print(",");
+    Serial.print("/");
     Serial.print(pitch);
-    Serial.print(",");
-    Serial.println();
+    Serial.print("/");
+    Serial.println(yaw);
 
     /*
     if (datalog){
